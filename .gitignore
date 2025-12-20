@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+.packages
+.dart_tool/
+.pub-cache/
+
+# Environment variables
+.env
+.env.local
+
+# Build outputs
+build/
+dist/
+uploads/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+
