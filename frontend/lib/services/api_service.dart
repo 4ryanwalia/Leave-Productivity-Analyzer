@@ -2,16 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Backend API base URL
-  // IMPORTANT: Update this value after deploying backend to Render
-  // 
-  // For local development:
-  //   static const String baseUrl = 'http://localhost:3000/api';
-  //
-  // For production (after deploying to Render):
-  //   static const String baseUrl = 'https://your-app-name.onrender.com/api';
-  //   Replace 'your-app-name' with your actual Render service name
-  static const String baseUrl = 'http://localhost:3000/api';
+
+ static const String baseUrl =
+  'https://leave-productivity-analyzer.onrender.com';
+
 
   /// Upload Excel file
   static Future<Map<String, dynamic>> uploadFile(
