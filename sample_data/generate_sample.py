@@ -86,3 +86,4 @@ output_file = "sample_attendance.xlsx"
 wb.save(output_file)
 print(f"Sample Excel file created: {output_file}")
 
+

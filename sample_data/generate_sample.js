@@ -108,3 +108,4 @@ XLSX.writeFile(wb, outputPath);
 console.log(`Sample Excel file created: ${outputPath}`);
 console.log(`Total records: ${data.length - 1}`); // Subtract header row
 
+
