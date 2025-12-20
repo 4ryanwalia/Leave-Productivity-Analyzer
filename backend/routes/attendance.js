@@ -190,12 +190,28 @@ router.get('/daily-breakdown', async (req, res) => {
  * Get list of all employees
  */
 router.get('/employees', async (req, res) => {
+  console.log('GET /employees route hit');
   try {
+    // Use distinct to get unique employee names
+    // Handle empty collections by returning empty array
     const employees = await Attendance.distinct('employeeName');
-    res.json({ employees });
+    
+    // Ensure employees is always an array (distinct returns array, but be safe)
+    const employeeList = Array.isArray(employees) ? employees : [];
+    
+    // Filter out null, undefined, or empty strings
+    const validEmployees = employeeList.filter(name => name && typeof name === 'string' && name.trim().length > 0);
+    
+    // Sort alphabetically for consistency
+    validEmployees.sort();
+    
+    console.log(`Returning ${validEmployees.length} employees`);
+    
+    return res.json({ employees: validEmployees });
   } catch (error) {
     console.error('Error fetching employees:', error);
-    res.status(500).json({ error: error.message || 'Error fetching employees' });
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ error: 'Failed to fetch employees' });
   }
 });
 

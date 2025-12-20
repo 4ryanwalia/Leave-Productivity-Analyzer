@@ -31,6 +31,8 @@ app.use('/api/upload', uploadRoutes);
 // Also handle /upload directly (for Flutter compatibility)
 app.use('/upload', uploadRoutes);
 app.use('/api/attendance', attendanceRoutes);
+// Also handle /attendance directly (for Flutter compatibility)
+app.use('/attendance', attendanceRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
