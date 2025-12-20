@@ -39,61 +39,119 @@ const upload = multer({
 });
 
 /**
+ * Multer error handler middleware
+ * Catches Multer errors (file size, file type, etc.) and returns JSON
+ */
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    // Multer errors (file size limit, etc.)
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File size exceeds the 10MB limit' });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({ error: 'Unexpected file field. Expected field name: "file"' });
+    }
+    return res.status(400).json({ error: `File upload error: ${err.message}` });
+  }
+  
+  if (err) {
+    // File filter errors and other errors
+    return res.status(400).json({ error: err.message || 'File upload error' });
+  }
+  
+  next();
+};
+
+/**
  * POST /api/upload
  * Upload and process Excel file
  */
-router.post('/', upload.single('file'), async (req, res) => {
+router.post('/', upload.single('file'), handleMulterError, async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ error: 'No file uploaded. Please ensure the field name is "file"' });
     }
 
     const filePath = req.file.path;
 
-    // Parse Excel file
-    const attendanceRecords = parseExcelFile(filePath);
+    // Parse Excel file - wrap in try-catch to handle parsing errors
+    let attendanceRecords;
+    try {
+      attendanceRecords = parseExcelFile(filePath);
+    } catch (parseError) {
+      // Clean up uploaded file on parse error
+      try {
+        fs.unlinkSync(filePath);
+      } catch (unlinkError) {
+        console.error('Error deleting uploaded file:', unlinkError);
+      }
+      return res.status(400).json({ error: parseError.message || 'Error parsing Excel file' });
+    }
 
     if (attendanceRecords.length === 0) {
       // Clean up uploaded file
-      fs.unlinkSync(filePath);
+      try {
+        fs.unlinkSync(filePath);
+      } catch (unlinkError) {
+        console.error('Error deleting uploaded file:', unlinkError);
+      }
       return res.status(400).json({ error: 'No valid attendance records found in the file' });
     }
 
     // Save records to database (upsert to avoid duplicates)
     // Ensure workedHours and expectedHours are always numbers
     const savedRecords = [];
-    for (const record of attendanceRecords) {
-      // Ensure numeric values
-      const workedHours = typeof record.workedHours === 'number' 
-        ? record.workedHours 
-        : parseFloat(record.workedHours) || 0;
-      const expectedHours = typeof record.expectedHours === 'number' 
-        ? record.expectedHours 
-        : parseFloat(record.expectedHours) || 0;
-      
-      const saved = await Attendance.findOneAndUpdate(
-        {
-          employeeName: record.employeeName,
-          date: record.date
-        },
-        {
-          ...record,
-          date: new Date(record.date.setHours(0, 0, 0, 0)), // Normalize date to start of day
-          workedHours: Math.round(workedHours * 100) / 100, // Round to 2 decimals
-          expectedHours: expectedHours // Ensure it's a number
-        },
-        {
-          upsert: true,
-          new: true
-        }
-      );
-      savedRecords.push(saved);
+    try {
+      for (const record of attendanceRecords) {
+        // Ensure numeric values
+        const workedHours = typeof record.workedHours === 'number' 
+          ? record.workedHours 
+          : parseFloat(record.workedHours) || 0;
+        const expectedHours = typeof record.expectedHours === 'number' 
+          ? record.expectedHours 
+          : parseFloat(record.expectedHours) || 0;
+        
+        // Create a new date object to avoid mutating the original
+        const recordDate = new Date(record.date);
+        recordDate.setHours(0, 0, 0, 0);
+        
+        const saved = await Attendance.findOneAndUpdate(
+          {
+            employeeName: record.employeeName,
+            date: recordDate
+          },
+          {
+            ...record,
+            date: recordDate, // Normalize date to start of day
+            workedHours: Math.round(workedHours * 100) / 100, // Round to 2 decimals
+            expectedHours: expectedHours // Ensure it's a number
+          },
+          {
+            upsert: true,
+            new: true
+          }
+        );
+        savedRecords.push(saved);
+      }
+    } catch (dbError) {
+      // Clean up uploaded file on database error
+      try {
+        fs.unlinkSync(filePath);
+      } catch (unlinkError) {
+        console.error('Error deleting uploaded file:', unlinkError);
+      }
+      console.error('Database error:', dbError);
+      return res.status(500).json({ error: 'Error saving records to database: ' + (dbError.message || 'Unknown error') });
     }
 
     // Clean up uploaded file
-    fs.unlinkSync(filePath);
+    try {
+      fs.unlinkSync(filePath);
+    } catch (unlinkError) {
+      console.error('Error deleting uploaded file:', unlinkError);
+    }
 
-    res.json({
+    return res.json({
       message: 'File uploaded and processed successfully',
       recordsProcessed: savedRecords.length,
       records: savedRecords
@@ -109,7 +167,7 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 
     console.error('Upload error:', error);
-    res.status(500).json({ error: error.message || 'Error processing file' });
+    return res.status(500).json({ error: error.message || 'Error processing file' });
   }
 });
 
