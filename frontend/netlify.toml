@@ -1,5 +1,5 @@
 [build]
-  command = "flutter build web --release"
+  base = "frontend"
   publish = "build/web"
 
 [[redirects]]
